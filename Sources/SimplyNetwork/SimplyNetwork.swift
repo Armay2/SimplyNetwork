@@ -1,6 +1,11 @@
-public struct SimplyNetwork {
-    var myText = "Hello, World!"
-}
+//
+//  SimplyNetwork.swift
+//  InDev SimplyNetwork
+//
+//  Created by Arnaud NOMMAY on 13/09/2021.
+//
 
-public var myGlobal = "SimplyNetwork is working"
+import Foundation
+import UIKit
 
+public let SN = Core.default
