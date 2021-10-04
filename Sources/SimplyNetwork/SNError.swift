@@ -7,6 +7,12 @@
 
 import Foundation
 
+enum ConfigurationError: Error {
+    case missingUrl
+    case UnknowError
+    case failQerryParam
+}
+
 enum SimplyNetworkError: Error {
     case invalidURL
     case notFound
@@ -15,6 +21,20 @@ enum SimplyNetworkError: Error {
     case forbidden
     case internalServerError
     case UnknowError
+}
+
+extension ConfigurationError {
+    public var errorDescription: String? {
+        switch self {
+        case .UnknowError:
+            return NSLocalizedString("Parameters Error [⚠️]: While passing parameters in the request", comment: "ConfigurationError")
+        case .missingUrl:
+            return NSLocalizedString("Url Missing [⚠️]: Missing absulute url in request url", comment: "ConfigurationError")
+        case .failQerryParam:
+            return NSLocalizedString("Parameters Error [⚠️]: Unable to query parameters", comment: "ConfigurationError")
+            
+        }
+    }
 }
 
 extension SimplyNetworkError: LocalizedError {

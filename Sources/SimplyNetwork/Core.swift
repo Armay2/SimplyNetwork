@@ -10,34 +10,35 @@ import Foundation
 open class Core {
     
     public static let `default` = Core()
-
-    // MARK: - WIP Request
+    private let parameterEncoder = ParametersEncoder()
     
-    // Image
+    public typealias DataRequestCompletion = (Result<(Data?, URLResponse), Error>) -> Void
+    public typealias CodableRequestCompletion<T: Codable> = (Result<(T?, URLResponse), Error>) -> Void
+    
+
+
+    // MARK: - Request
     
     /// Return a `Data` object after prossesing an http request
     /// - Parameters:
     ///   - strUrl: The `String` for the request
-    ///   - methode: The `HTTPMethod` for the request, default is GET
+    ///   - method: The `HTTPMethod` for the request, default is GET
     ///   - parameters: The `Parameters` for the request
     ///   - headers: The `HTTPHeaders` for the request
     ///   - completion: The callback called after retrieval
     open func request(_ strUrl: String,
-                      methode: HTTPMethod = .get,
+                      method: HTTPMethod = .get,
                       parameters: Parameters? = nil,
                       headers: HTTPHeaders? = nil,
-                      _ completion: @escaping (Result<(Data?, URLResponse), Error>) -> Void) {
-        guard let requestUrl = URL(string: strUrl) else {
-            debug("Invalid URL")
-            completion(.failure(SimplyNetworkError.invalidURL))
-            return
+                      paramDestination: ParamDestination? = .methodDependent,
+                      _ completion: @escaping DataRequestCompletion) throws {
+        let urlRequest: URLRequest?
+        do {
+            urlRequest = try configureURLRequest(for: strUrl, method: method, parameters: parameters, headers: headers, paramDestination: paramDestination)
+        } catch {
+            throw error
         }
-        var request = configureURLRequest(for: requestUrl, methode: methode, parameters: parameters, headers: headers)
-        
-        if let parameters = parameters {
-            let jsonData = try? JSONSerialization.data(withJSONObject: parameters)
-            request.httpBody = jsonData
-        }
+        guard let request = urlRequest else { return }
         
         let dataTask = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -58,30 +59,28 @@ open class Core {
     }
     
     
+    // Remplacer par "T"
     /// Return a `Codable` object after prossesing an http request
     ///
     /// - Parameters:
     ///   - strUrl: The `String` for the request
-    ///   - methode: The `HTTPMethod` for the request, default is GET
+    ///   - method: The `HTTPMethod` for the request, default is GET
     ///   - parameters: The `Parameters` for the request
     ///   - headers: The `HTTPHeaders` for the request
     ///   - completion: The callback called after retrieval
-    open func request<CodableData: Codable>(_ strUrl: String,
-                      methode: HTTPMethod = .get,
-                      parameters: Parameters? = nil,
-                      headers: HTTPHeaders? = nil,
-                      _ completion: @escaping (Result<(CodableData?, URLResponse), Error>) -> Void) {
-        guard let requestUrl = URL(string: strUrl) else {
-            debug("Invalid URL")
-            completion(.failure(SimplyNetworkError.invalidURL))
-            return
+    open func request<T: Codable>(_ strUrl: String,
+                                  method: HTTPMethod = .get,
+                                  parameters: Parameters? = nil,
+                                  headers: HTTPHeaders? = nil,
+                                  paramDestination: ParamDestination? = .methodDependent,
+                                  _ completion: @escaping CodableRequestCompletion<T>) throws {
+        let urlRequest: URLRequest?
+        do {
+            urlRequest = try configureURLRequest(for: strUrl, method: method, parameters: parameters, headers: headers, paramDestination: paramDestination)
+        } catch {
+            throw error
         }
-        var request = configureURLRequest(for: requestUrl, methode: methode, parameters: parameters, headers: headers)
-
-        if let parameters = parameters {
-            let jsonData = try? JSONSerialization.data(withJSONObject: parameters)
-            request.httpBody = jsonData
-        }
+        guard let request = urlRequest else { return }
         
         let dataTask = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -91,11 +90,10 @@ open class Core {
                 if response.statusCode == 200 {
                     DispatchQueue.main.async {
                         do {
-                            let decodedJSON = try JSONDecoder().decode(CodableData.self, from: data)
+                            let decodedJSON = try JSONDecoder().decode(T.self, from: data)
                             completion(.success((decodedJSON, response)))
-                            print("My decodedJson \(String(describing: decodedJSON))")
                         } catch let error {
-                            print("Error decoding: ", error)
+                            completion(.failure(error))
                         }
                     }
                 } else {
@@ -112,21 +110,39 @@ open class Core {
         dataTask.resume()
     }
     
+   
+    
+    
     // MARK: - Setup
-    private func configureURLRequest(for requestUr: URL,
-                                     methode: HTTPMethod = .get,
-                                     parameters: Parameters? = nil,
-                                     headers: HTTPHeaders? = nil) -> URLRequest {
-        var request = URLRequest(url: requestUr)
+    
+    // TODO: Error handling to the caller
+    private func configureURLRequest(for strUrl: String,
+                                     method: HTTPMethod,
+                                     parameters: Parameters?,
+                                     headers: HTTPHeaders?,
+                                     paramDestination: ParamDestination?) throws -> URLRequest {
+        guard let requestUrl = URL(string: strUrl) else {
+            debug("Invalid URL")
+            throw SimplyNetworkError.invalidURL
+        }
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = method.rawValue
         
-        request.httpMethod = methode.rawValue
-
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if headers != nil {
-            headers?.forEach({ header in
-                request.addValue(header.value, forHTTPHeaderField: header.description)
+        // Voir pour utiliser un enum ?
+        if let headers = headers {
+            headers.forEach({ header in
+                request.addValue(header.value, forHTTPHeaderField: header.name)
             })
         }
+        
+        if let parameters = parameters {
+            do {
+                try parameterEncoder.configureRequest(parameters: parameters, request: &request, destination: paramDestination)
+            } catch {
+                throw error
+            }
+        }
+        
         return request
     }
     
@@ -135,7 +151,15 @@ open class Core {
     private func errorFromStatusCode(for statusCode: Int) -> SimplyNetworkError {
         switch statusCode {
         case 404:
-            return SimplyNetworkError.invalidURL
+            return SimplyNetworkError.notFound
+        case 401:
+            return SimplyNetworkError.unauthorized
+        case 400:
+            return SimplyNetworkError.badRequest
+        case 403:
+            return SimplyNetworkError.forbidden
+        case 500:
+            return SimplyNetworkError.internalServerError
         default:
             return SimplyNetworkError.UnknowError
         }
@@ -144,10 +168,27 @@ open class Core {
     // MARK: - Debug
     
     func debug(_ msg: String) {
-        #if DEBUG
-            fatalError(msg)
-        #elseif RELEASE
-            print(msg)
-        #endif
+#if DEBUG
+        fatalError(msg)
+#elseif RELEASE
+        print(msg)
+#endif
     }
 }
+
+
+/*
+ do {
+ let jsonData = try JSONSerialization.data(withJSONObject: parameters, options: .prettyPrinted)
+ let decoded = try JSONSerialization.jsonObject(with: jsonData, options: [])
+ 
+ // Cast with the right type
+ if let dictFromJSON = decoded as? [String:String] {
+ let str = dictFromJSON.map { "\($0)=\($1)" }.joined(separator: "&")
+ let postData =  str.data(using: .utf8)
+ request.httpBody = postData
+ }
+ } catch {
+ print(error.localizedDescription)
+ }
+ */
