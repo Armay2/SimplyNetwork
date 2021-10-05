@@ -14,17 +14,16 @@ open class Core {
     
     public typealias DataRequestCompletion = (Result<(Data?, URLResponse), Error>) -> Void
     public typealias CodableRequestCompletion<T: Codable> = (Result<(T?, URLResponse), Error>) -> Void
-    
-
-
+        
     // MARK: - Request
     
     /// Return a `Data` object after prossesing an http request
     /// - Parameters:
-    ///   - strUrl: The `String` for the request
-    ///   - method: The `HTTPMethod` for the request, default is GET
+    ///   - strUrl: The string `String` for the request
+    ///   - method: The `HTTPMethod` for the request, default is `.get`
     ///   - parameters: The `Parameters` for the request
     ///   - headers: The `HTTPHeaders` for the request
+    ///   - paramDestination: Destination for the parameters `ParamDestination`, default is `.methodDependent`
     ///   - completion: The callback called after retrieval
     open func request(_ strUrl: String,
                       method: HTTPMethod = .get,
@@ -43,30 +42,30 @@ open class Core {
         let dataTask = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
-            } else if let data = data, let response = response {
-                guard let response = response as? HTTPURLResponse else { return }
-                if response.statusCode == 200 {
-                    completion(.success((data, response)))
-                    print("My data \(String(decoding: data, as: UTF8.self))")
+            }
+            guard let response = response as? HTTPURLResponse else { return }
+            if (200...299).contains(response.statusCode) {
+                completion(.success((data, response)))
+            } else {
+                let simplyNError = self.errorFromStatusCode(for: response.statusCode)
+                if simplyNError == .UnknowError {
+                    completion(.success((nil, response)))
                 } else {
-                    let simplyNError = self.errorFromStatusCode(for: response.statusCode)
                     completion(.failure(simplyNError))
                 }
-                completion(.success((nil, response)))
             }
+            completion(.success((nil, response)))
         }
         dataTask.resume()
     }
     
-    
-    // Remplacer par "T"
     /// Return a `Codable` object after prossesing an http request
-    ///
     /// - Parameters:
-    ///   - strUrl: The `String` for the request
-    ///   - method: The `HTTPMethod` for the request, default is GET
+    ///   - strUrl: The url `String` for the request
+    ///   - method: The `HTTPMethod` for the request, default is `.get`
     ///   - parameters: The `Parameters` for the request
     ///   - headers: The `HTTPHeaders` for the request
+    ///   - paramDestination: Destination for the parameters `ParamDestination`, default is `.methodDependent`
     ///   - completion: The callback called after retrieval
     open func request<T: Codable>(_ strUrl: String,
                                   method: HTTPMethod = .get,
@@ -87,7 +86,7 @@ open class Core {
                 completion(.failure(error))
             } else if let data = data, let response = response {
                 guard let response = response as? HTTPURLResponse else { return }
-                if response.statusCode == 200 {
+                if (200...299).contains(response.statusCode) {
                     DispatchQueue.main.async {
                         do {
                             let decodedJSON = try JSONDecoder().decode(T.self, from: data)
@@ -110,12 +109,91 @@ open class Core {
         dataTask.resume()
     }
     
-   
+    // MARK: - Upload
     
+    /// Upload a file thanks to is `URL` to a targeted destination `URL`
+    /// - Parameters:
+    ///   - fileURL: `URL` of file you want to upload
+    ///   - targetURL: Target `URL`
+    ///   - completion: The callback called after retrieval
+    open func uploadFile(fileURL: URL,
+                         to targetURL: String,
+                         completion: @escaping DataRequestCompletion) throws {
+        guard let requestUrl = URL(string: targetURL) else {
+            throw SimplyNetworkError.invalidURL
+        }
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = "POST"
+        request.setValue(HeaderContentType.JSON.rawValue, forHTTPHeaderField: "Content-Type")
+        
+        let task = URLSession.shared.uploadTask(with: request, fromFile: fileURL, completionHandler: { data, response, error in
+                if let error = error {
+                    completion(.failure(error))
+                }
+                guard let response = response as? HTTPURLResponse else { return }
+                if (200...299).contains(response.statusCode), let mimeType = response.mimeType, mimeType == "application/json",
+                   let data = data {
+                    completion(.success((data, response)))
+                } else {
+                    let simplyNError = self.errorFromStatusCode(for: response.statusCode)
+                    if simplyNError == .UnknowError {
+                        completion(.success((nil, response)))
+                    } else {
+                        completion(.failure(simplyNError))
+                    }
+                }
+            }
+        )
+        task.resume()
+    }
+    
+    
+    /// Upload some given `Data` to a targeted `URL`
+    /// - Parameters:
+    ///   - dataToSend: The `Data` that you when to upload
+    ///   - targetURL: Target `URL`
+    ///   - completion: The callback called after retrieval
+    open func uploadFile(dataToSend: Data,
+                         to targetURL: String,
+                         completion: @escaping DataRequestCompletion) throws {
+        guard let requestUrl = URL(string: targetURL) else {
+            throw SimplyNetworkError.invalidURL
+        }
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = "POST"
+        request.setValue(HeaderContentType.JSON.rawValue, forHTTPHeaderField: "Content-Type")
+        
+        let task = URLSession.shared.uploadTask(with: request, from: dataToSend, completionHandler: { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+            }
+            guard let response = response as? HTTPURLResponse else { return }
+            if (200...299).contains(response.statusCode), let mimeType = response.mimeType, mimeType == "application/json",
+               let data = data {
+                completion(.success((data, response)))
+            } else {
+                let simplyNError = self.errorFromStatusCode(for: response.statusCode)
+                if simplyNError == .UnknowError {
+                    completion(.success((nil, response)))
+                } else {
+                    completion(.failure(simplyNError))
+                }
+            }
+        }
+    )
+        task.resume()
+    }
     
     // MARK: - Setup
-    
-    // TODO: Error handling to the caller
+        
+    /// Configures `URLRequest` for requests that need a specific `parameters` and `headers`
+    /// - Parameters:
+    ///   - strUrl: The url `String` for the request
+    ///   - method: The `HTTPMethod` for the request
+    ///   - parameters: The `Parameters` for the request
+    ///   - headers: The `HTTPHeaders` for the request
+    ///   - paramDestination: <#paramDestination description#>
+    /// - Returns: <#description#>
     private func configureURLRequest(for strUrl: String,
                                      method: HTTPMethod,
                                      parameters: Parameters?,
@@ -128,12 +206,19 @@ open class Core {
         var request = URLRequest(url: requestUrl)
         request.httpMethod = method.rawValue
         
-        // Voir pour utiliser un enum ?
-        if let headers = headers {
+        //Better way ?
+        if var headers = headers {
             headers.forEach({ header in
                 request.addValue(header.value, forHTTPHeaderField: header.name)
             })
+            
+            if paramDestination == .httpBody {
+                if headers["Content-Type"] == nil {
+                    headers.update(name: "Content-Type", value: HeaderContentType.formUrlencoded.rawValue)
+                }
+            }
         }
+        
         
         if let parameters = parameters {
             do {
@@ -175,7 +260,6 @@ open class Core {
 #endif
     }
 }
-
 
 /*
  do {

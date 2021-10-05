@@ -107,7 +107,6 @@ public struct ParametersEncoder {
         }
     }
     
-    // TODO: Take destination in account
     /// Select where Parameters needed to be in the request, related to the request type and user selected destination
     /// - Parameters:
     ///   - parameters: `Parameters` to querry
@@ -116,6 +115,11 @@ public struct ParametersEncoder {
     /// - Throws: Error of type `ConfigurationError`
     func selectMethod(_ parameters: Parameters, _ request: inout URLRequest, _ destination: ParamDestination?) throws {
         do {
+            if destination == .httpBody {
+                try configureHtttBody(parameters, &request)
+            } else if destination == .queryString {
+                try configQueryString(parameters, &request)
+            }
             if request.httpMethod == HTTPMethod.get.rawValue || request.httpMethod == HTTPMethod.head.rawValue || request.httpMethod == HTTPMethod.delete.rawValue {
                 try configQueryString(parameters, &request)
             } else {

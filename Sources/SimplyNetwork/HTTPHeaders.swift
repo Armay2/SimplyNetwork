@@ -7,6 +7,10 @@
 
 import Foundation
 
+public enum HeaderContentType: String {
+    case JSON = "application/json"
+    case formUrlencoded = "application/x-www-form-urlencoded"
+}
 
 public struct HTTPHeaders {
     private var headers: [HTTPHeader] = []
@@ -44,6 +48,33 @@ public struct HTTPHeaders {
         headers.replaceSubrange(index...index, with: [header])
     }
     
+    public mutating func remove(name: String) {
+        guard let index = headers.index(of: name) else { return }
+
+        headers.remove(at: index)
+    }
+    
+    public mutating func sort() {
+        headers.sort { $0.name.lowercased() < $1.name.lowercased() }
+    }
+    
+    public func value(for name: String) -> String? {
+        guard let index = headers.index(of: name) else { return nil }
+
+        return headers[index].value
+    }
+    
+    public subscript(_ name: String) -> String? {
+        get { value(for: name) }
+        set {
+            if let value = newValue {
+                update(name: name, value: value)
+            } else {
+                remove(name: name)
+            }
+        }
+    }
+    
     public var dictionary: [String: String] {
         let namesAndValues = headers.map { ($0.name, $0.value) }
         
@@ -65,6 +96,24 @@ public struct HTTPHeader: Hashable {
     public init(name: String, value: String) {
         self.name = name
         self.value = value
+    }
+}
+
+extension HTTPHeaders: Collection {
+    public var startIndex: Int {
+        headers.startIndex
+    }
+
+    public var endIndex: Int {
+        headers.endIndex
+    }
+
+    public subscript(position: Int) -> HTTPHeader {
+        headers[position]
+    }
+
+    public func index(after i: Int) -> Int {
+        headers.index(after: i)
     }
 }
 
