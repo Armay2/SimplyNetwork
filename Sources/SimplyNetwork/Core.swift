@@ -11,10 +11,9 @@ open class Core {
     
     public static let `default` = Core()
     private let parameterEncoder = ParametersEncoder()
+    public typealias DataRequestCompletion = (Result<(Data, URLResponse), Error>) -> Void
+    public typealias CodableRequestCompletion<T: Codable> = (Result<(T, URLResponse), Error>) -> Void
     
-    public typealias DataRequestCompletion = (Result<(Data?, URLResponse), Error>) -> Void
-    public typealias CodableRequestCompletion<T: Codable> = (Result<(T?, URLResponse), Error>) -> Void
-        
     // MARK: - Request
     
     /// Return a `Data` object after prossesing an http request
@@ -45,16 +44,14 @@ open class Core {
             }
             guard let response = response as? HTTPURLResponse else { return }
             if (200...299).contains(response.statusCode) {
-                completion(.success((data, response)))
-            } else {
-                let simplyNError = self.errorFromStatusCode(for: response.statusCode)
-                if simplyNError == .UnknowError {
-                    completion(.success((nil, response)))
+                if let data = data {
+                    completion(.success((data, response)))
                 } else {
-                    completion(.failure(simplyNError))
+                    completion(.failure(SimplyNetworkError.noDataFound))
                 }
+            } else {
+                completion(.failure(self.errorFromStatusCode(for: response.statusCode)))
             }
-            completion(.success((nil, response)))
         }
         dataTask.resume()
     }
@@ -92,18 +89,12 @@ open class Core {
                             let decodedJSON = try JSONDecoder().decode(T.self, from: data)
                             completion(.success((decodedJSON, response)))
                         } catch let error {
-                            completion(.failure(error))
+                            completion(.failure(error)) // SimpleNetworkError.decodingJSON ?
                         }
                     }
                 } else {
-                    let simplyNError = self.errorFromStatusCode(for: response.statusCode)
-                    if simplyNError == .UnknowError {
-                        completion(.success((nil, response)))
-                    } else {
-                        completion(.failure(simplyNError))
-                    }
+                    completion(.failure(self.errorFromStatusCode(for: response.statusCode)))
                 }
-                completion(.success((nil, response)))
             }
         }
         dataTask.resume()
@@ -127,22 +118,17 @@ open class Core {
         request.setValue(HeaderContentType.JSON.rawValue, forHTTPHeaderField: "Content-Type")
         
         let task = URLSession.shared.uploadTask(with: request, fromFile: fileURL, completionHandler: { data, response, error in
-                if let error = error {
-                    completion(.failure(error))
-                }
-                guard let response = response as? HTTPURLResponse else { return }
-                if (200...299).contains(response.statusCode), let mimeType = response.mimeType, mimeType == "application/json",
-                   let data = data {
-                    completion(.success((data, response)))
-                } else {
-                    let simplyNError = self.errorFromStatusCode(for: response.statusCode)
-                    if simplyNError == .UnknowError {
-                        completion(.success((nil, response)))
-                    } else {
-                        completion(.failure(simplyNError))
-                    }
-                }
+            if let error = error {
+                completion(.failure(error))
             }
+            guard let response = response as? HTTPURLResponse else { return }
+            if (200...299).contains(response.statusCode), let mimeType = response.mimeType, mimeType == "application/json",
+               let data = data {
+                completion(.success((data, response)))
+            } else {
+                completion(.failure(self.errorFromStatusCode(for: response.statusCode)))
+            }
+        }
         )
         task.resume()
     }
@@ -172,20 +158,15 @@ open class Core {
                let data = data {
                 completion(.success((data, response)))
             } else {
-                let simplyNError = self.errorFromStatusCode(for: response.statusCode)
-                if simplyNError == .UnknowError {
-                    completion(.success((nil, response)))
-                } else {
-                    completion(.failure(simplyNError))
-                }
+                completion(.failure(self.errorFromStatusCode(for: response.statusCode)))
             }
         }
-    )
+        )
         task.resume()
     }
     
     // MARK: - Setup
-        
+    
     /// Configures `URLRequest` for requests that need a specific `parameters` and `headers`
     /// - Parameters:
     ///   - strUrl: The url `String` for the request
@@ -200,7 +181,6 @@ open class Core {
                                      headers: HTTPHeaders?,
                                      paramDestination: ParamDestination?) throws -> URLRequest {
         guard let requestUrl = URL(string: strUrl) else {
-            debug("Invalid URL")
             throw SimplyNetworkError.invalidURL
         }
         var request = URLRequest(url: requestUrl)
@@ -246,19 +226,10 @@ open class Core {
         case 500:
             return SimplyNetworkError.internalServerError
         default:
-            return SimplyNetworkError.UnknowError
+            return SimplyNetworkError.unknowError(statusCode: statusCode)
         }
     }
     
-    // MARK: - Debug
-    
-    func debug(_ msg: String) {
-#if DEBUG
-        fatalError(msg)
-#elseif RELEASE
-        print(msg)
-#endif
-    }
 }
 
 /*

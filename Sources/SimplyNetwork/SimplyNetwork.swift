@@ -6,6 +6,5 @@
 //
 
 import Foundation
-import UIKit
 
 public let SN = Core.default
