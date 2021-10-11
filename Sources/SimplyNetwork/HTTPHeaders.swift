@@ -50,7 +50,7 @@ public struct HTTPHeaders {
     
     public mutating func remove(name: String) {
         guard let index = headers.index(of: name) else { return }
-
+        
         headers.remove(at: index)
     }
     
@@ -60,7 +60,7 @@ public struct HTTPHeaders {
     
     public func value(for name: String) -> String? {
         guard let index = headers.index(of: name) else { return nil }
-
+        
         return headers[index].value
     }
     
@@ -103,15 +103,15 @@ extension HTTPHeaders: Collection {
     public var startIndex: Int {
         headers.startIndex
     }
-
+    
     public var endIndex: Int {
         headers.endIndex
     }
-
+    
     public subscript(position: Int) -> HTTPHeader {
         headers[position]
     }
-
+    
     public func index(after i: Int) -> Int {
         headers.index(after: i)
     }

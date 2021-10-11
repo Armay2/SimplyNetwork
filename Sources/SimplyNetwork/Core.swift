@@ -173,8 +173,7 @@ open class Core {
     ///   - method: The `HTTPMethod` for the request
     ///   - parameters: The `Parameters` for the request
     ///   - headers: The `HTTPHeaders` for the request
-    ///   - paramDestination: <#paramDestination description#>
-    /// - Returns: <#description#>
+    ///   - paramDestination: Destination for the parameters `ParamDestination`, default is `.methodDependent`
     private func configureURLRequest(for strUrl: String,
                                      method: HTTPMethod,
                                      parameters: Parameters?,

@@ -13,7 +13,7 @@ enum ConfigurationError: Error {
     case failQerryParam
 }
 
-enum SimplyNetworkError: Error {
+public enum SimplyNetworkError: Error {
     case invalidURL
     case notFound
     case unauthorized
@@ -34,6 +34,33 @@ extension ConfigurationError {
             return NSLocalizedString("Missing URL [⚠️]: Missing absulute url in request url", comment: "ConfigurationError")
         case .failQerryParam:
             return NSLocalizedString("Parameters Error [⚠️]: Unable to query parameters", comment: "ConfigurationError")
+        }
+    }
+}
+
+extension SimplyNetworkError: Equatable {
+    public static func == (lhs: SimplyNetworkError, rhs: SimplyNetworkError) -> Bool {
+        switch(lhs, rhs) {
+        case (.invalidURL, .invalidURL):
+            return true
+        case (.notFound, .notFound):
+            return true
+        case (.unauthorized, .unauthorized):
+            return true
+        case (.badRequest, .badRequest):
+            return true
+        case (.forbidden, .forbidden):
+            return true
+        case (.internalServerError, .internalServerError):
+            return true
+        case (.unknowError(statusCode: let lhsCode), .unknowError(statusCode: let rhsCode)):
+            return lhsCode == rhsCode
+        case (.decodingJSON, .decodingJSON):
+            return true
+        case (.noDataFound, .noDataFound):
+            return true
+        default:
+            return false
         }
     }
 }

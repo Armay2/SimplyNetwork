@@ -135,8 +135,7 @@ public struct ParametersEncoder {
     ///   - parameters: `Parameters` to querry
     ///   - request: Request that needed to be configure
     /// - Throws: Error of type `ConfigurationError`
-    func configQueryString(_ parameters: Parameters, _ request: inout URLRequest) throws {
-        var request = request
+    public func configQueryString(_ parameters: Parameters, _ request: inout URLRequest) throws {
         guard var strUrl = request.url?.absoluteString else {
             throw ConfigurationError.missingUrl
         }
@@ -146,7 +145,7 @@ public struct ParametersEncoder {
         
         strUrl = strUrl + "?" + strParam
         let newUrl = URL(string: strUrl)
-        request = URLRequest(url: newUrl!)
+        request.url = newUrl
     }
 }
 
