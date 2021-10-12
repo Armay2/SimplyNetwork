@@ -11,7 +11,7 @@
 
 - [About](#about)
 - [Installat on](#installation)
-- [Expemples](#Expemples)
+- [Exemples](#Exemples)
 - [Contributing](#Contributing)
 
 <!-- ABOUT -->
@@ -34,7 +34,7 @@ dependencies: [
 ```
 
 <!-- BASIC EXEMPLES -->
-## Expemples
+## Exemples
 
 We provide you diffrents methods for making HTTP requests 
 
