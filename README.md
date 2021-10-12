@@ -10,11 +10,13 @@
 # Table of content
 
 - [About](#about)
-- [Installation](#installation)
-- [Basic Expemples](#Basic Expemples)
+- [Installat on](#installation)
+- [Expemples](#Expemples)
+- [Contributing](#Contributing)
 
 <!-- ABOUT -->
 ## About
+This is a package usefull to make simple HTTP requests and upload some files.
 
 <!-- INSTALLATION -->
 ## Installation
@@ -32,45 +34,91 @@ dependencies: [
 ```
 
 <!-- BASIC EXEMPLES -->
-## Basic Expemples
+## Expemples
 
+We provide you diffrents methods for making HTTP requests 
 
-Call request with determide object to decode 
+This is one way of making a request. The full definition looks like this
+
+```swift 
+ open func request<T: Codable>(_ strUrl: String,
+                                  method: HTTPMethod = .get,
+                                  parameters: Parameters? = nil,
+                                  headers: HTTPHeaders? = nil,
+                                  paramDestination: ParamDestination? = .methodDependent,
+                                  _ completion: @escaping CodableRequestCompletion<T>) throws {
+```
+Notice that's not the only definition, you can also request directly some data. 
+
 ### Simple request
 
-**Strong error handling**
+**Request Codable Object**
 
-	```
-	SN.request("https://yourUrl/content/") { (result: Result<(YourObject?, URLResponse), Error>) in
-		switch result {
-		case .success((let object, let responce)):
-			if let object = object {
-	          print(object.name)
-	       } else {
-	          print("Request: " + responce.description)
-	       }
-		case .failure(let error):
-			print("Error: " + error.localizedDescription)
-		}
+Call request with determide object to decode 
+
+```swift
+var myObject: MyObject?
+	
+SN.request("https://yourUrl/content/") { (result: Result<(MyObject, URLResponse), Error>) in
+	switch result {
+	case .success((let object, let response)):
+		myObject = object
+		print(response)
+	case .failure(let err):
+		print(error)
 	}
-	```
+}
+```
+Your Object must conform to `Codable` Protocol
+	
+	
+**Request some data**
 
-**Simple error handling**
-
-	```
-	SN.request("https://yourUrl/content/") { (result: Result<(YourObject?, URLResponse), Error>) in
-		switch result {
-		case .success((let object, let responce)):
-			if let object = object {
-	          print(object.name)
-	       }
-	   	case .failure(let error):
-			print("Error: " + error.localizedDescription)
-		}
+```swift
+try? SN.request(url) { (result: Result<(Data, URLResponse), Error>) in
+	switch result {
+	case .success((let dat, _)):
+		data = dat
+	case .failure(let err):
+		error = err
 	}
-	```
+}
+```
 
-### Request with parameters
+
+### Request with full configuration
+```swift
+let parameters: [String: String] = [
+        "username": "name@doamin.com",
+        "password": "password",
+        "locale": "en-gb"]
+var headers = HTTPHeaders()
+headers.add(name: "Content-Type", value: "application/x-www-form-urlencoded")
+headers.add(name: "Accept", value: "application/json")
+
+    
+try? SN.request("https://httpbin.org", method: .post, parameters: parameters, headers: headers, paramDestination: .httpBody) { (result: Result<(MyObject, URLResponse), Error>) in
+	switch result {
+	case .success((let obj, let response)):
+		print(obj)
+		print(response)
+	case .failure(let err):
+		print(error)
+	}
+}
+```
+
+### Upload a file
+```swift
+open func uploadFile(fileURL: URL,
+                         to targetURL: String,
+                         completion: @escaping DataRequestCompletion) throws {
+                         
+open func uploadFile(dataToSend: Data,
+                         to targetURL: String,
+                         completion: @escaping DataRequestCompletion) throws {                        
+```
+
 
 
 <!-- CONTRIBUTING -->
@@ -99,20 +147,3 @@ Distributed under the MIT License. See `LICENSE` for more information.
 Arnaud: [@NAUNAU22](https://twitter.com/NAUNAU22) 
 
 Project Link: [https://github.com/Armay2/SimplyNetwork](https://github.com/Armay2/SimplyNetworke)
-
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/github_username/repo.svg?style=for-the-badge
-[contributors-url]: https://github.com/github_username/repo_name/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/github_username/repo.svg?style=for-the-badge
-[forks-url]: https://github.com/github_username/repo_name/network/members
-[stars-shield]: https://img.shields.io/github/stars/github_username/repo.svg?style=for-the-badge
-[stars-url]: https://github.com/github_username/repo_name/stargazers
-[issues-shield]: https://img.shields.io/github/issues/github_username/repo.svg?style=for-the-badge
-[issues-url]: https://github.com/github_username/repo_name/issues
-[license-shield]: https://img.shields.io/github/license/github_username/repo.svg?style=for-the-badge
-[license-url]: https://github.com/github_username/repo_name/blob/master/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/github_username
