@@ -43,7 +43,7 @@ open class Core {
                 completion(.failure(error))
             }
             guard let response = response as? HTTPURLResponse else { return }
-            if (200...299).contains(response.statusCode) {
+            if (200...299).contains(response.statusCode) || response.statusCode == 400 {
                 if let data = data {
                     completion(.success((data, response)))
                 } else {
@@ -83,7 +83,7 @@ open class Core {
                 completion(.failure(error))
             } else if let data = data, let response = response {
                 guard let response = response as? HTTPURLResponse else { return }
-                if (200...299).contains(response.statusCode) {
+                if (200...299).contains(response.statusCode) || response.statusCode == 400 {
                     DispatchQueue.main.async {
                         do {
                             let decodedJSON = try JSONDecoder().decode(T.self, from: data)
